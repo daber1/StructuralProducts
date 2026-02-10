@@ -5,6 +5,7 @@ from ..core.asset import Asset
 from ..parser.json_parser import ProductFactory
 
 class PhoenixAutocallProduct(StructuralProduct):
+    
     def __init__(self, isin, name, nominal, currency, 
                  coupon_rate, barriers, feature_type="standard"):
         super().__init__(isin, name, nominal, currency)
@@ -29,22 +30,14 @@ class PhoenixAutocallProduct(StructuralProduct):
             instance.underlyings.append(Asset(ticker))
         return instance
 
-    def _calculate_performance(self, current_prices: Dict[str, float]) -> float:
-        """Считает перформанс корзины (worst-of или average)"""
-        performances = []
-        for asset in self.underlyings:
-            p0 = self.initial_prices[asset.ticker]
-            pt = current_prices[asset.ticker]
-            performances.append(pt / p0)
-        
-        if self.barrier_type == 'worst_of':
-            return min(performances)
-        elif self.barrier_type == 'average':
-            return np.mean(performances)
-        else:
-            raise ValueError(f"Unknown barrier type: {self.barrier_type}")
-
     def evaluate(self, current_prices: Dict[str, float], is_final_date=False,  years_held=3.0):
+        """
+        Оценка состояния продукта на дату наблюдения.
+        
+        :param current_prices: Словарь текущих цен {ticker: price}
+        :param is_final_date: Флаг даты погашения (Maturity)
+        :param years_held: Сколько лет прошло с начала (для расчета годового купона)
+        """
         # 1. Считаем перформанс каждой бумаги: P_current / P_initial
         perfs = []
         for asset in self.underlyings:
