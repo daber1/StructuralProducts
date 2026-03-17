@@ -1,114 +1,155 @@
-from typing import Dict, List
+from typing import Any, Dict, List, Tuple
+
 import numpy as np
-from ..core.product import StructuralProduct
-from ..core.asset import Asset
-from ..parser.json_parser import ProductFactory
+
+from structpy.core.asset import Asset
+from structpy.core.product import StructuralProduct
+from structpy.parser.json_parser import ProductFactory
+
 
 class PhoenixAutocallProduct(StructuralProduct):
-    def __init__(self, isin, name, nominal, currency, 
-                 coupon_rate, barriers, feature_type="standard"):
+    def __init__(
+        self,
+        isin: str,
+        name: str,
+        nominal: float,
+        currency: str,
+        coupon_rate: float,
+        barriers: Dict[str, float],
+        feature_type: str = "standard",
+        memory_effect: bool = False,
+        coupon_frequency: int = 1,
+    ):
         super().__init__(isin, name, nominal, currency)
         self.coupon_rate = coupon_rate
-        self.barriers = barriers # dict: {'autocall': 1.0, 'coupon': 0.8, ...}
+        self.barriers = barriers
         self.feature_type = feature_type
+        self.memory_effect = memory_effect
+        self.coupon_frequency = coupon_frequency
 
     @classmethod
     def from_config(cls, config: dict):
-        p = config['params']
-        meta = config['meta']
+        params = config["params"]
+        meta = config["meta"]
         instance = cls(
-            isin=meta['isin'],
-            name=meta.get('name', 'Unknown'),
-            nominal=p['nominal'],
-            currency=p.get('currency', 'RUB'),
-            coupon_rate=p['coupon_rate'],
-            barriers=p['barriers'],
-            feature_type=p.get('feature_type', 'standard')
+            isin=meta.get("isin", "Unknown"),
+            name=meta.get("name", "Unknown"),
+            nominal=float(params.get("nominal", 1000.0)),
+            currency=params.get("currency", "RUB"),
+            coupon_rate=float(params.get("coupon_rate", 0.0)),
+            barriers=params.get("barriers", {}),
+            feature_type=params.get("feature_type", "standard"),
+            memory_effect=bool(params.get("memory_effect", False)),
+            coupon_frequency=int(params.get("coupon_frequency", 1)),
         )
-        for ticker in p['underlyings']:
+        for ticker in params.get("underlyings", []):
             instance.underlyings.append(Asset(ticker))
         return instance
 
-    def _calculate_performance(self, current_prices: Dict[str, float]) -> float:
-        """Считает перформанс корзины (worst-of или average)"""
-        performances = []
+    def _performance_metrics(
+        self, current_prices: Dict[str, float]
+    ) -> Tuple[float, float, float, float]:
+        if not self.underlyings:
+            raise ValueError("PhoenixAutocall product has no underlyings.")
+
+        performances: List[float] = []
         for asset in self.underlyings:
-            p0 = self.initial_prices[asset.ticker]
-            pt = current_prices[asset.ticker]
-            performances.append(pt / p0)
-        
-        if self.barrier_type == 'worst_of':
-            return min(performances)
-        elif self.barrier_type == 'average':
-            return np.mean(performances)
+            if asset.ticker not in self.initial_prices:
+                raise ValueError(
+                    f"Initial price for ticker '{asset.ticker}' is not set."
+                )
+
+            initial_price = float(self.initial_prices[asset.ticker])
+            if initial_price <= 0:
+                raise ValueError(
+                    f"Initial price for ticker '{asset.ticker}' must be positive."
+                )
+
+            current_price = float(current_prices.get(asset.ticker, initial_price))
+            performances.append(current_price / initial_price)
+
+        perf_worst = min(performances)
+        perf_average = float(np.mean(performances))
+
+        if self.feature_type == "hybrid_avg_worst":
+            trigger_metric = perf_average
+            risk_metric = perf_worst
+        elif self.feature_type in {"standard", "worst_of"}:
+            trigger_metric = perf_worst
+            risk_metric = perf_worst
+        elif self.feature_type == "average":
+            trigger_metric = perf_average
+            risk_metric = perf_average
         else:
-            raise ValueError(f"Unknown barrier type: {self.barrier_type}")
+            raise ValueError(f"Unknown feature_type: {self.feature_type}")
 
-    def evaluate(self, current_prices: Dict[str, float], is_final_date=False,  years_held=3.0):
-        # 1. Считаем перформанс каждой бумаги: P_current / P_initial
-        perfs = []
-        for asset in self.underlyings:
-            # Если актив упал на 30%, perf = 0.70
-            p0 = self.initial_prices[asset.ticker]
-            pt = current_prices.get(asset.ticker, p0) # safe get
-            perfs.append(pt / p0)
-        
-        # 2. Вычисляем метрики
-        val_worst = min(perfs)
-        val_average = np.mean(perfs)
+        return perf_worst, perf_average, trigger_metric, risk_metric
 
-        result = {
-            "perf_worst": val_worst,
-            "perf_avg": val_average,
-            "payout": 0.0,
-            "action": "hold"
+    def evaluate(
+        self, market_data_series: Any, initial_missed_coupons: int = 0
+    ) -> Dict[str, Any]:
+        cashflows = []
+        missed_coupons = initial_missed_coupons
+        total_payout = 0.0
+
+        for step_idx, current_prices in enumerate(market_data_series):
+            step = step_idx + 1
+            is_final_date = step == len(market_data_series)
+
+            perf_worst, perf_average, trigger_metric, risk_metric = self._performance_metrics(
+                current_prices
+            )
+
+            coupon_barrier = float(self.barriers.get("coupon", 1.0))
+            autocall_level = float(self.barriers.get("autocall", 1.0))
+
+            if trigger_metric >= coupon_barrier:
+                multiplier = (missed_coupons + 1) if self.memory_effect else 1
+                periodic_coupon_rate = self.coupon_rate / float(self.coupon_frequency)
+                coupon_amount = self.nominal * periodic_coupon_rate * float(multiplier)
+                cashflows.append((step, coupon_amount))
+                total_payout += coupon_amount
+                missed_coupons = 0
+            else:
+                missed_coupons += 1
+
+            if not is_final_date and trigger_metric >= autocall_level:
+                cashflows.append((step, self.nominal))
+                total_payout += self.nominal
+                return {
+                    "action": "autocall",
+                    "step": step,
+                    "payout": float(total_payout),
+                    "cashflows": cashflows,
+                    "perf_worst": perf_worst,
+                    "perf_avg": perf_average,
+                }
+
+            if is_final_date:
+                if risk_metric >= float(self.barriers.get("capital_protection", 0.9)):
+                    redemption_amount = self.nominal
+                else:
+                    redemption_amount = self.nominal * risk_metric
+
+                cashflows.append((step, redemption_amount))
+                total_payout += redemption_amount
+
+                return {
+                    "action": "maturity",
+                    "step": step,
+                    "payout": float(total_payout),
+                    "cashflows": cashflows,
+                    "perf_worst": perf_worst,
+                    "perf_avg": perf_average,
+                }
+
+        return {
+            "action": "hold",
+            "payout": float(total_payout),
+            "cashflows": cashflows,
+            "perf_worst": 1.0,
+            "perf_avg": 1.0,
         }
 
-        # --- ЛОГИКА RU000A108HM7 (Hybrid) ---
-        if self.feature_type == 'hybrid_avg_worst':
-            # Основная метрика для Купона/Автоколла - СРЕДНЕЕ
-            trigger_metric = val_average
-            # Метрика для защиты капитала - ХУДШЕЕ
-            risk_metric = val_worst
-        else:
-            # Стандартная (обычно Worst of)
-            # Здесь можно добавить параметр barrier_metric в конфиг, 
-            # но по умолчанию берем worst для надежности
-            trigger_metric = val_worst
-            risk_metric = val_worst
 
-        # 1. Проверка Автоколла (досрочное погашение)
-        # Если сегодня не финал и метрика выше барьера автоколла
-        autocall_level = self.barriers.get('autocall', 1.0)
-        if not is_final_date and trigger_metric >= autocall_level:
-            result['action'] = 'autocall'
-            # Номинал + Купон
-            result['payout'] = self.nominal * (1 + self.coupon_rate * years_held)
-            return result
-
-        # 2. Финальное погашение
-        if is_final_date:
-            result['action'] = 'maturity'
-            
-            # Сценарий А: Выполнилось условие доходности (Сценарий > 110%)
-            # Для HM7: Если Среднее >= 110%
-            coupon_barrier = self.barriers.get('coupon', 1.0)
-            
-            if trigger_metric >= coupon_barrier:
-                # Номинал + Купон
-                result['payout'] = self.nominal * (1 + self.coupon_rate * years_held)
-            
-            # Сценарий Б: Дохода нет, проверяем защиту капитала
-            # Для HM7: Если Среднее < 110%, но Худший >= 90% -> Вернуть Номинал
-            elif risk_metric >= self.barriers.get('capital_protection', 0.9):
-                result['payout'] = self.nominal
-            
-            # Сценарий В: Защита пробита (Худший < 90%)
-            # Выплата по Худшему
-            else:
-                result['payout'] = self.nominal * risk_metric 
-                
-        return result
-
-# Регистрация класса в фабрике
 ProductFactory.register("PhoenixAutocall", PhoenixAutocallProduct)
