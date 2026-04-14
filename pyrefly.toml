@@ -1,0 +1,4 @@
+# Pyrefly configuration
+search_roots = ["."]
+site_package_path = ".venv/Lib/site-packages"
+python_version = "3.13" # Based on the pip3.13.exe found in Scripts
