@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Sequence
 
 from .asset import Asset
 
@@ -17,6 +17,10 @@ class StructuralProduct(ABC):
         self.initial_prices = dict(prices)
 
     @abstractmethod
-    def evaluate(self, market_data: Any) -> Dict[str, Any]:
+    def evaluate(
+        self,
+        market_data_series: Sequence[Dict[str, float]],
+        initial_missed_coupons: int = 0,
+    ) -> Dict[str, Any]:
         pass
 
