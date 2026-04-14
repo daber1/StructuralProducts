@@ -1,0 +1,21 @@
+{
+    "product_name": "Phoenix Autocall High Yield",
+    "isin": "RU000A108HM7",
+    "pricing": {
+        "fair_value": 842.1822086699415,
+        "std_error": 3.3168720319407634,
+        "mean_payout_undiscounted": 1033.7195561211229
+    },
+    "risk": {
+        "VaR": 676.1469536081722,
+        "Expected_Shortfall": 751.5388517445955,
+        "Confidence_Level": 0.95,
+        "Max_Loss": 927.2507964861077,
+        "Nominal_Investment": 1000.0
+    },
+    "deltas": {
+        "SBER": 1.3512660769150182,
+        "YDEX": 0.016397996193177278,
+        "TCSG": 0.04287509252354767
+    }
+}

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Structural Products Pricing Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+
+        .glass {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .card-hover:hover {
+            transform: translateY(-4px);
+            transition: all 0.3s ease;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+    </style>
+</head>
+
+<body class="min-h-screen p-8">
+    <div class="max-w-6xl mx-auto">
+        <header class="mb-12 flex justify-between items-center">
+            <div>
+                <h1 class="text-4xl font-bold gradient-text">Pricing Dashboard</h1>
+                <p class="text-slate-400 mt-2">Monte-Carlo Simulation & Risk Analytics Engine</p>
+            </div>
+            <div class="glass px-6 py-3 rounded-2xl flex items-center space-x-4">
+                <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                <span class="text-sm font-semibold">Engine Active</span>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+            <div class="glass p-8 rounded-3xl card-hover relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-10">
+                    <svg class="w-16 h-16" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                        <path fill-rule="evenodd"
+                            d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
+                            clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">Fair Value</h3>
+                <div class="text-5xl font-bold mb-1" id="fairValue">819.79</div>
+                <div class="text-blue-400 font-semibold" id="fairValuePct">81.98% of Nominal</div>
+            </div>
+
+            <div class="glass p-8 rounded-3xl card-hover">
+                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">VaR (95%)</h3>
+                <div class="text-5xl font-bold mb-4" id="var">676.16</div>
+                <div class="flex items-center text-red-400">
+                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd"
+                            d="M12 7a1 1 0 110-2h5V2a1 1 0 112 0v5a1 1 0 01-1 1h-6zM2.293 7.293a1 1 0 011.414 0L10 13.586l2.293-2.293a1 1 0 011.414 1.414l-3 3a1 1 0 01-1.414 0l-7-7a1 1 0 010-1.414z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    <span id="maxLoss">Max Loss: 927.25</span>
+                </div>
+            </div>
+
+            <div class="glass p-8 rounded-3xl card-hover">
+                <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">Stability</h3>
+                <div class="text-5xl font-bold mb-4" id="stdError">3.34</div>
+                <div class="text-slate-400 text-sm">Monte Carlo Standard Error</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="glass p-8 rounded-3xl">
+                <h2 class="text-2xl font-bold mb-6 flex items-center">
+                    <svg class="w-6 h-6 mr-2 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                        </path>
+                    </svg>
+                    Product Specifications
+                </h2>
+                <div id="productSpecs" class="space-y-4"></div>
+            </div>
+
+            <div class="glass p-8 rounded-3xl">
+                <h2 class="text-2xl font-bold mb-6 flex items-center">
+                    <svg class="w-6 h-6 mr-2 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                    </svg>
+                    Sensitivities (Delta)
+                </h2>
+                <div class="h-64">
+                    <canvas id="deltaChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const demoReport = {
+            "product_name": "Phoenix Autocall High Yield",
+            "isin": "RU000A108HM7",
+            "pricing": {
+                "fair_value": 819.79,
+                "std_error": 3.3433,
+                "mean_payout_undiscounted": 1033.72
+            },
+            "risk": {
+                "VaR": 676.16,
+                "Expected_Shortfall": 751.69,
+                "Max_Loss": 927.25,
+                "Nominal_Investment": 1000.0
+            },
+            "deltas": {
+                "SBER": 0.45,
+                "YDEX": 0.32,
+                "TCSG": 0.28
+            }
+        };
+
+        function updateUI(data) {
+            const nominal = data.risk.Nominal_Investment || 1000;
+            document.getElementById('fairValue').textContent = data.pricing.fair_value.toFixed(2);
+            document.getElementById('fairValuePct').textContent = `${((data.pricing.fair_value / nominal) * 100).toFixed(2)}% of Nominal`;
+            document.getElementById('var').textContent = data.risk.VaR.toFixed(2);
+            document.getElementById('maxLoss').textContent = `Max Loss: ${data.risk.Max_Loss.toFixed(2)}`;
+            document.getElementById('stdError').textContent = data.pricing.std_error.toFixed(2);
+
+            const specs = document.getElementById('productSpecs');
+            const fields = [
+                { l: 'Product', v: data.product_name },
+                { l: 'ISIN', v: data.isin },
+                { l: 'Nominal', v: `${data.risk.Nominal_Investment} RUB` },
+                { l: 'Expected Payout', v: `${data.pricing.mean_payout_undiscounted.toFixed(2)} RUB` }
+            ];
+            specs.innerHTML = fields.map(f => `
+                <div class="flex justify-between border-b border-slate-700 pb-2">
+                    <span class="text-slate-400">${f.l}</span>
+                    <span class="font-semibold">${f.v}</span>
+                </div>
+            `).join('');
+
+            const ctx = document.getElementById('deltaChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(data.deltas),
+                    datasets: [{
+                        label: 'Delta Sensitivity',
+                        data: Object.values(data.deltas),
+                        backgroundColor: ['#60a5fa', '#a78bfa', '#f472b6'],
+                        borderRadius: 8,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: '#94a3b8' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8' }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function loadReport() {
+            try {
+                const response = await fetch('./pricing_report.json', { cache: 'no-store' });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                return await response.json();
+            } catch (err) {
+                console.warn('Using demo report, failed to load pricing_report.json:', err);
+                return demoReport;
+            }
+        }
+
+        loadReport().then(updateUI);
+    </script>
+</body>
+
+</html>
