@@ -17,14 +17,13 @@ class ProductFactory:
         meta = config.get("meta", {})
         product_type = meta.get("type")
         if not product_type:
-            raise ValueError("Product config must include meta.type")
+            raise ValueError("Конфигурация продукта должна включать поле type.")
 
         if product_type not in cls._registry:
-            # Try to load built-in product registrations lazily.
             importlib.import_module("structpy.products")
 
         if product_type not in cls._registry:
-            raise ValueError(f"Unknown product type: {product_type}")
+            raise ValueError(f"Неизвестный тип продукта: {product_type}")
 
         product_class = cls._registry[product_type]
         return product_class.from_config(config)

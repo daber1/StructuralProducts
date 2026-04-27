@@ -10,8 +10,8 @@ class StructuralProduct(ABC):
         self.name = name
         self.nominal = nominal
         self.currency = currency
-        self.underlyings: List[Asset] = []
-        self.initial_prices: Dict[str, float] = {}
+        self.underlyings: List[Asset] = [] # базовые активы
+        self.initial_prices: Dict[str, float] = {} # изначальные цены базовых активов
 
     def set_initial_prices(self, prices: Dict[str, float]) -> None:
         self.initial_prices = dict(prices)
@@ -22,5 +22,6 @@ class StructuralProduct(ABC):
         market_data_series: Sequence[Dict[str, float]],
         initial_missed_coupons: int = 0,
     ) -> Dict[str, Any]:
+        """Метод возвращающий payoff."""
         pass
 

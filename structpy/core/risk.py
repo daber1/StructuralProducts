@@ -18,9 +18,9 @@ class RiskManager:
         seed: Optional[int] = None,
     ) -> Dict[str, float]:
         if not 0 < confidence_level < 1:
-            raise ValueError("confidence_level must be between 0 and 1")
+            raise ValueError("0 < confidence_level < 1")
         if n_scenarios <= 0:
-            raise ValueError("n_scenarios must be positive")
+            raise ValueError("n_scenarios > 0")
 
         paths = self.pricer.generator.generate_paths(n_scenarios, n_steps, T, seed)
 
@@ -44,7 +44,6 @@ class RiskManager:
         sorted_losses = np.sort(losses)
 
         var_index = max(0, int(np.ceil(confidence_level * n_scenarios)) - 1)
-        var_index = min(var_index, n_scenarios - 1)
 
         var_value = float(sorted_losses[var_index])
         tail_losses = sorted_losses[var_index:]
@@ -67,8 +66,9 @@ class RiskManager:
         T: float = 3.0,
         seed: int = 42,
     ) -> float:
+        """Бампаем цену и измеряем изменение стоимости продукта."""
         if bump <= 0:
-            raise ValueError("bump must be positive")
+            raise ValueError("bump > 0")
 
         base_price = self.pricer.price(n_scenarios, n_steps, T, seed=seed)["fair_value"]
 
@@ -87,6 +87,7 @@ class RiskManager:
         bump: float = 0.01,
         n_scenarios: int = 5000,
     ) -> Dict[str, float]:
+        """Считаем дельту для всех активов."""
         deltas = {}
         for asset in self.pricer.product.underlyings:
             deltas[asset.ticker] = self.calculate_delta(

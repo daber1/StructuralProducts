@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import numpy as np
 
@@ -16,15 +16,15 @@ class Pricer:
         n_scenarios: int = 10000,
         n_steps: int = 12,
         T: float = 3.0,
-        seed: Optional[int] = None,
+        seed: int | None = None,
         initial_missed_coupons: int = 0,
     ) -> Dict[str, Any]:
         if n_scenarios <= 0:
-            raise ValueError("n_scenarios must be positive")
+            raise ValueError("n_scenarios > 0")
         if n_steps <= 0:
-            raise ValueError("n_steps must be positive")
+            raise ValueError("n_steps > 0")
         if T <= 0:
-            raise ValueError("T must be positive")
+            raise ValueError("T > 0")
 
         paths = self.generator.generate_paths(n_scenarios, n_steps, T, seed)
 
