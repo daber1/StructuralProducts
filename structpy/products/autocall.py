@@ -54,10 +54,12 @@ class PhoenixAutocallProduct(StructuralProduct):
 
     def _redemption_amount(self, trigger_metric: float, risk_metric: float) -> float:
         capital_protection = float(self.barriers.get("capital_protection", 0.9))
+        # Перформанс ниже уровня защиты капитала - инвестор получает пропорционально этому уровню
         if risk_metric < capital_protection:
             return self.nominal * risk_metric
 
         redemption_amount = self.nominal
+        # Если есть участие в росте и перформанс выше страйка, добавляем дополнительную выплату
         if self.participation_rate > 0.0 and trigger_metric > self.strike:
             upside = self.participation_rate * (trigger_metric - self.strike)
             redemption_amount += self.nominal * upside
@@ -67,20 +69,21 @@ class PhoenixAutocallProduct(StructuralProduct):
     def _performance_metrics(
         self, current_prices: Dict[str, float]
     ) -> Tuple[float, float, float, float]:
+        """Считает показатели для текущих цен активов."""
         if not self.underlyings:
-            raise ValueError("PhoenixAutocall product has no underlyings.")
+            raise ValueError("У продукта нет базовых активов.")
 
         performances: List[float] = []
         for asset in self.underlyings:
             if asset.ticker not in self.initial_prices:
                 raise ValueError(
-                    f"Initial price for ticker '{asset.ticker}' is not set."
+                    f"Нет изначальной цены для актива с тикером '{asset.ticker}'."
                 )
 
             initial_price = float(self.initial_prices[asset.ticker])
             if initial_price <= 0:
                 raise ValueError(
-                    f"Initial price for ticker '{asset.ticker}' must be positive."
+                    f"Изначальная цена для актива с тикером '{asset.ticker}' должна быть положительной."
                 )
 
             current_price = float(current_prices.get(asset.ticker, initial_price))
@@ -99,7 +102,7 @@ class PhoenixAutocallProduct(StructuralProduct):
             trigger_metric = perf_average
             risk_metric = perf_average
         else:
-            raise ValueError(f"Unknown feature_type: {self.feature_type}")
+            raise ValueError(f"Неизвестный feature_type: {self.feature_type}")
 
         return perf_worst, perf_average, trigger_metric, risk_metric
 
@@ -120,7 +123,7 @@ class PhoenixAutocallProduct(StructuralProduct):
 
             coupon_barrier = float(self.barriers.get("coupon", 1.0))
             autocall_level = float(self.barriers.get("autocall", 1.0))
-
+            # Если достигнут барьер для купона, начисляем купон с учетом эффекта памяти
             if trigger_metric >= coupon_barrier:
                 multiplier = (missed_coupons + 1) if self.memory_effect else 1
                 periodic_coupon_rate = self.coupon_rate / float(self.coupon_frequency)
@@ -130,7 +133,7 @@ class PhoenixAutocallProduct(StructuralProduct):
                 missed_coupons = 0
             else:
                 missed_coupons += 1
-
+            # Проверка автокола
             if not is_final_date and trigger_metric >= autocall_level:
                 cashflows.append((step, self.nominal))
                 total_payout += self.nominal
@@ -142,7 +145,7 @@ class PhoenixAutocallProduct(StructuralProduct):
                     "perf_worst": perf_worst,
                     "perf_avg": perf_average,
                 }
-
+            # Экспирация
             if is_final_date:
                 redemption_amount = self._redemption_amount(
                     trigger_metric=trigger_metric,
@@ -175,16 +178,15 @@ class PhoenixAutocallProduct(StructuralProduct):
         initial_missed_coupons: int = 0,
     ) -> Dict[str, Any]:
         if market_data_series is None:
-            raise ValueError("market_data_series must not be None")
+            raise ValueError("Необходимо указать market_data_series")
         if isinstance(market_data_series, dict):
             raise TypeError(
-                "PhoenixAutocallProduct.evaluate expects a path of observations, "
-                "not a single price snapshot."
+                "Метод evaluate ожидает последовательность словарей с ценами"
             )
 
         market_path = list(market_data_series)
         if not market_path:
-            raise ValueError("market_data_series must contain at least one observation")
+            raise ValueError("market_data_series должно содержать хотя бы одно наблюдение")
 
         return self._evaluate_path(
             market_path,

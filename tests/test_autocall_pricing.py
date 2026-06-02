@@ -67,7 +67,10 @@ def _participation_config(participation_rate: float) -> dict:
     }
 
 
-def _basket_participation_config(participation_rate: float) -> dict:
+def _basket_participation_config(
+    participation_rate: float,
+    capital_protection: float = 0.0,
+) -> dict:
     return {
         "meta": {"name": "Worst-Of Basket Participation Note", "type": "PhoenixAutocall"},
         "params": {
@@ -81,7 +84,7 @@ def _basket_participation_config(participation_rate: float) -> dict:
             "barriers": {
                 "autocall": 10.0,
                 "coupon": 10.0,
-                "capital_protection": 0.0,
+                "capital_protection": capital_protection,
             },
         },
     }
@@ -175,5 +178,21 @@ def test_worst_of_basket_participation_is_sensitive_to_correlation(make_product)
     high_corr = _price_basket_product(
         make_product, config, initial_prices, volatilities, correlation=0.8, r=0.02, t=1.0
     )
+    assert high_corr["fair_value"] > low_corr["fair_value"]
 
+
+def test_worst_of_basket_with_downside_is_sensitive_to_correlation(make_product):
+    initial_prices = {"ASSET1": 100.0, "ASSET2": 100.0, "ASSET3": 100.0}
+    volatilities = {"ASSET1": 0.25, "ASSET2": 0.30, "ASSET3": 0.28}
+    config = _basket_participation_config(
+        participation_rate=1.0,
+        capital_protection=0.7,
+    )
+
+    low_corr = _price_basket_product(
+        make_product, config, initial_prices, volatilities, correlation=0.2, r=0.02, t=1.0
+    )
+    high_corr = _price_basket_product(
+        make_product, config, initial_prices, volatilities, correlation=0.8, r=0.02, t=1.0
+    )
     assert high_corr["fair_value"] > low_corr["fair_value"]

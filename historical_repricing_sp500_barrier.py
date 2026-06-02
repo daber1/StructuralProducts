@@ -16,8 +16,8 @@ from structpy.parser import parse_dict_config
 
 FRED_BASE_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv"
 OUTPUT_DIR = Path("artifacts")
-CSV_OUTPUT = OUTPUT_DIR / "sp500_barrier_note_backtest.csv"
-PNG_OUTPUT = OUTPUT_DIR / "sp500_barrier_note_backtest.png"
+CSV_OUTPUT = OUTPUT_DIR / "sp500_accelerated_barrier_note_backtest.csv"
+PNG_OUTPUT = OUTPUT_DIR / "sp500_accelerated_barrier_note_backtest.png"
 
 
 @dataclass(frozen=True)
@@ -26,8 +26,41 @@ class BacktestConfig:
     maturity_date: str = "2026-01-05"
     nominal: float = 1000.0
     capital_barrier: float = 0.70
+    participation_rate: float = 1.2
     n_scenarios: int = 25000
     pricing_seed: int = 42
+
+
+def _resolve_market_date(
+    index: pd.DatetimeIndex,
+    target_date: pd.Timestamp,
+    *,
+    direction: str,
+) -> pd.Timestamp:
+    if direction not in {"next", "previous"}:
+        raise ValueError("direction must be either 'next' or 'previous'")
+
+    target_date = pd.Timestamp(target_date)
+    if target_date in index:
+        return target_date
+
+    if direction == "next":
+        position = index.searchsorted(target_date, side="left")
+        if position >= len(index):
+            raise KeyError(
+                f"No market data on or after {target_date.date()} in the loaded series."
+            )
+        return pd.Timestamp(index[position])
+
+    if direction == "previous":
+        position = index.searchsorted(target_date, side="right") - 1
+        if position < 0:
+            raise KeyError(
+                f"No market data on or before {target_date.date()} in the loaded series."
+            )
+        return pd.Timestamp(index[position])
+
+    raise AssertionError("Unreachable branch")
 
 
 def _fetch_fred_series(series_id: str) -> pd.Series:
@@ -71,6 +104,7 @@ def _product_config(config: BacktestConfig) -> dict:
             "coupon_rate": 0.0,
             "memory_effect": False,
             "coupon_frequency": 1,
+            "participation_rate": config.participation_rate,
             "barriers": {
                 "autocall": 10.0,
                 "coupon": 10.0,
@@ -80,14 +114,21 @@ def _product_config(config: BacktestConfig) -> dict:
     }
 
 
-def _build_monthly_schedule(data: pd.DataFrame, launch_date: pd.Timestamp, maturity_date: pd.Timestamp) -> pd.DatetimeIndex:
+def _build_daily_schedule(
+    data: pd.DataFrame,
+    launch_date: pd.Timestamp,
+    maturity_date: pd.Timestamp,
+) -> pd.DatetimeIndex:
     window = data.loc[launch_date:maturity_date]
-    monthly = window.groupby(pd.Grouper(freq="MS")).head(1).index
-    if monthly.empty or monthly[0] != launch_date:
-        monthly = monthly.insert(0, launch_date)
-    if monthly[-1] != maturity_date:
-        monthly = monthly.insert(len(monthly), maturity_date)
-    return pd.DatetimeIndex(monthly.unique()).sort_values()
+    if window.empty:
+        raise ValueError("No market data available inside the selected repricing window")
+
+    valuation_dates = pd.DatetimeIndex(window.index.unique()).sort_values()
+    if valuation_dates[0] != launch_date:
+        valuation_dates = valuation_dates.insert(0, launch_date)
+    if valuation_dates[-1] != maturity_date:
+        valuation_dates = valuation_dates.insert(len(valuation_dates), maturity_date)
+    return pd.DatetimeIndex(valuation_dates.unique()).sort_values()
 
 
 def _price_on_date(
@@ -128,13 +169,25 @@ def _price_on_date(
 
 def run_backtest(config: BacktestConfig) -> pd.DataFrame:
     market_data = _load_market_data()
-    launch_date = pd.Timestamp(config.launch_date)
-    maturity_date = pd.Timestamp(config.maturity_date)
+    configured_launch_date = pd.Timestamp(config.launch_date)
+    configured_maturity_date = pd.Timestamp(config.maturity_date)
+    launch_date = _resolve_market_date(
+        market_data.index,
+        configured_launch_date,
+        direction="next",
+    )
+    maturity_date = _resolve_market_date(
+        market_data.index,
+        configured_maturity_date,
+        direction="previous",
+    )
+    if maturity_date < launch_date:
+        raise ValueError("Resolved maturity date must not be earlier than launch date")
 
     launch_row = market_data.loc[launch_date]
     launch_spot = float(launch_row["SP500"])
     product_config = _product_config(config)
-    valuation_dates = _build_monthly_schedule(market_data, launch_date, maturity_date)
+    valuation_dates = _build_daily_schedule(market_data, launch_date, maturity_date)
 
     rows = []
     for valuation_date in valuation_dates:
@@ -167,6 +220,8 @@ def run_backtest(config: BacktestConfig) -> pd.DataFrame:
         )
 
     result = pd.DataFrame(rows).set_index("valuation_date")
+    result.attrs["resolved_launch_date"] = launch_date
+    result.attrs["resolved_maturity_date"] = maturity_date
     return result
 
 
@@ -176,30 +231,30 @@ def _plot_backtest(result: pd.DataFrame, config: BacktestConfig) -> None:
     ax.plot(
         result.index,
         result["fair_value"],
-        label="Model Fair Value",
+        label="Модельная оценка",
         color="#0b5cad",
         linewidth=2.5,
     )
     ax.plot(
         result.index,
         result["underlying_normalized"],
-        label="SP500 Normalized To Nominal",
+        label="Нормализованный SP500",
         color="#d97706",
         linewidth=2.0,
         linestyle="--",
     )
-    ax.axhline(
-        config.nominal * config.capital_barrier,
-        color="#b91c1c",
-        linewidth=1.5,
-        linestyle=":",
-        label="70% Barrier Level",
-    )
-    ax.axhline(config.nominal, color="#475569", linewidth=1.0, linestyle="-.", label="Nominal")
+    # ax.axhline(
+    #     config.nominal * config.capital_barrier,
+    #     color="#b91c1c",
+    #     linewidth=1.5,
+    #     linestyle=":",
+    #     label="70% Barrier Level",
+    # )
+    # ax.axhline(config.nominal, color="#475569", linewidth=1.0, linestyle="-.", label="Nominal")
 
-    ax.set_title("Historical Repricing Of A 70% Barrier Note On SP500")
+    ax.set_title("Историческая переоценка структурного продукта с барьером на SP500", fontsize=14)
     ax.set_ylabel("USD")
-    ax.set_xlabel("Valuation Date")
+    ax.set_xlabel("Дата оценки")
     ax.grid(alpha=0.25)
     ax.legend()
     fig.tight_layout()
@@ -212,6 +267,8 @@ def _plot_backtest(result: pd.DataFrame, config: BacktestConfig) -> None:
 def main() -> None:
     config = BacktestConfig()
     result = run_backtest(config)
+    resolved_launch_date = result.attrs["resolved_launch_date"]
+    resolved_maturity_date = result.attrs["resolved_maturity_date"]
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     result.to_csv(CSV_OUTPUT, index=True)
@@ -219,6 +276,8 @@ def main() -> None:
 
     print(f"Launch date: {config.launch_date}")
     print(f"Maturity date: {config.maturity_date}")
+    print(f"Resolved launch market date: {resolved_launch_date.date()}")
+    print(f"Resolved maturity market date: {resolved_maturity_date.date()}")
     print(f"Launch SP500 level: {result['underlying_spot'].iloc[0]:.2f}")
     print(f"Final SP500 level: {result['underlying_spot'].iloc[-1]:.2f}")
     print(f"Initial fair value: {result['fair_value'].iloc[0]:.2f}")
