@@ -10,9 +10,7 @@ from structpy.parser.json_parser import load_product
 
 
 def print_banner() -> None:
-    print("=" * 60)
-    print("      STRUCTURAL PRODUCTS PRICING ENGINE v2.0")
-    print("=" * 60)
+    print("Structural Products Pricing Engine")
 
 
 def price_product_workflow(
@@ -44,7 +42,7 @@ def price_product_workflow(
     T = float(market_params.get("T", 3.0))
     n_steps = int(market_params.get("n_steps", int(T * 4)))
 
-    print(f"[*] Running Monte Carlo simulation with {n_scenarios} scenarios...")
+    print(f"Running Monte Carlo simulation with {n_scenarios} scenarios...")
     pricing_result = pricer.price(n_scenarios=n_scenarios, n_steps=n_steps, T=T, seed=42)
 
     risk_manager = RiskManager(pricer)
@@ -102,29 +100,25 @@ def main() -> None:
     try:
         report = price_product_workflow(example_config, market_params)
 
-        print("\n" + "-" * 60)
-        print(f"PRODUCT REPORT: {report['product_name']} ({report['isin']})")
-        print("-" * 60)
+        print(f"\nProduct: {report['product_name']} ({report['isin']})")
 
         pricing = report["pricing"]
         risk = report["risk"]
         deltas = report["deltas"]
 
+        print(f"Fair value: {pricing['fair_value']:.2f} RUB ({pricing['fair_value'] / 1000:.2%})")
+        print(f"Standard error: {pricing['std_error']:.4f}")
+        print(f"Mean payout gross: {pricing['mean_payout_undiscounted']:.2f} RUB")
         print(
-            f"Fair Value:           {pricing['fair_value']:.2f} RUB "
-            f"({pricing['fair_value'] / 1000:.2%})"
+            "Risk metrics: "
+            f"VaR 95% = {risk['VaR']:.2f}, "
+            f"ES = {risk['Expected_Shortfall']:.2f}, "
+            f"Max loss = {risk['Max_Loss']:.2f}"
         )
-        print(f"Std Error:            {pricing['std_error']:.4f}")
-        print(f"Mean Payout (Gross):  {pricing['mean_payout_undiscounted']:.2f} RUB")
-        print("-" * 30)
-        print(f"VaR (95%):            {risk['VaR']:.2f} RUB")
-        print(f"Expected Shortfall:   {risk['Expected_Shortfall']:.2f} RUB")
-        print(f"Maximum Loss:         {risk['Max_Loss']:.2f} RUB")
-        print("-" * 30)
-        print("SENSITIVITIES (Delta):")
-        for ticker, value in deltas.items():
-            print(f"  d(V)/d({ticker}):   {value:+.4f}")
-        print("-" * 60)
+        print(
+            "Deltas: "
+            + ", ".join(f"{ticker}={value:+.4f}" for ticker, value in deltas.items())
+        )
 
         report_to_save = report.copy()
         report_to_save["pricing"] = report["pricing"].copy()
@@ -133,7 +127,7 @@ def main() -> None:
         with open("pricing_report.json", "w", encoding="utf-8") as handle:
             json.dump(report_to_save, handle, indent=4)
 
-        print("[!] Detailed report saved to 'pricing_report.json'")
+        print("Detailed report saved to pricing_report.json")
     except Exception as exc:
         print(f"[ERROR] {exc}")
 
