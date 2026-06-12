@@ -41,6 +41,9 @@ def test_pricer_returns_expected_result_shape(make_product):
 
     assert result["fair_value"] > 0
     assert result["std_error"] >= 0
+    assert len(result["confidence_interval_95"]) == 2
+    assert result["confidence_interval_95"][0] <= result["fair_value"]
+    assert result["confidence_interval_95"][1] >= result["fair_value"]
     assert result["mean_payout_undiscounted"] > 0
     assert len(result["payouts"]) == 250
 

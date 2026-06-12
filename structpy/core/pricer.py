@@ -61,11 +61,15 @@ class Pricer:
 
         fair_value = float(np.mean(discounted_payouts))
         std_error = float(np.std(discounted_payouts) / np.sqrt(n_scenarios))
+        ci_half_width = 1.96 * std_error
 
         return {
             "fair_value": fair_value,
             "std_error": std_error,
+            "confidence_interval_95": (
+                float(fair_value - ci_half_width),
+                float(fair_value + ci_half_width),
+            ),
             "mean_payout_undiscounted": float(np.mean(total_payouts)),
             "payouts": total_payouts.tolist() if n_scenarios <= 1000 else [],
         }
-

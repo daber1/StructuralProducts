@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict
+from typing import Any, Dict, Iterable
 
 import numpy as np
 
@@ -11,6 +11,36 @@ from structpy.parser.json_parser import load_product
 
 def print_banner() -> None:
     print("Structural Products Pricing Engine")
+
+
+def run_convergence_analysis(
+    pricer: Pricer,
+    scenario_counts: list[int],
+    *,
+    n_steps: int,
+    T: float,
+    seed: int = 42,
+) -> list[Dict[str, Any]]:
+    """Функция для запуска нескольких прайсеров с разным количеством генераций."""
+    results = []
+    for n_scenarios in scenario_counts:
+        result = pricer.price(
+            n_scenarios=int(n_scenarios),
+            n_steps=n_steps,
+            T=T,
+            seed=seed,
+        )
+        ci_low, ci_high = result["confidence_interval_95"]
+        results.append(
+            {
+                "n_scenarios": int(n_scenarios),
+                "fair_value": result["fair_value"],
+                "std_error": result["std_error"],
+                "ci_95_low": ci_low,
+                "ci_95_high": ci_high,
+            }
+        )
+    return results
 
 
 def price_product_workflow(
@@ -53,6 +83,13 @@ def price_product_workflow(
         seed=42,
     )
     deltas = risk_manager.calculate_all_deltas(n_scenarios=2000)
+    convergence = run_convergence_analysis(
+        pricer,
+        market_params.get("convergence_scenarios", [1000, 5000, 10000, 25000, 50000]),
+        n_steps=n_steps,
+        T=T,
+        seed=42,
+    )
 
     return {
         "product_name": product.name,
@@ -60,6 +97,7 @@ def price_product_workflow(
         "pricing": pricing_result,
         "risk": risk_metrics,
         "deltas": deltas,
+        "convergence": convergence,
     }
 
 
@@ -94,6 +132,7 @@ def main() -> None:
         "dividend_yields": {"SBER": 0.10, "YDEX": 0.0, "TCSG": 0.05},
         "correlation_matrix": [[1.0, 0.4, 0.5], [0.4, 1.0, 0.3], [0.5, 0.3, 1.0]],
         "n_scenarios": 10000,
+        "convergence_scenarios": [1000, 5000, 10000, 25000, 50000],
         "T": 3.0,
     }
 
@@ -105,8 +144,10 @@ def main() -> None:
         pricing = report["pricing"]
         risk = report["risk"]
         deltas = report["deltas"]
+        ci_low, ci_high = pricing["confidence_interval_95"]
 
         print(f"Fair value: {pricing['fair_value']:.2f} RUB ({pricing['fair_value'] / 1000:.2%})")
+        print(f"95% CI: [{ci_low:.2f}, {ci_high:.2f}] RUB")
         print(f"Standard error: {pricing['std_error']:.4f}")
         print(f"Mean payout gross: {pricing['mean_payout_undiscounted']:.2f} RUB")
         print(
@@ -119,6 +160,14 @@ def main() -> None:
             "Deltas: "
             + ", ".join(f"{ticker}={value:+.4f}" for ticker, value in deltas.items())
         )
+        print("\nMonte Carlo convergence:")
+        for row in report["convergence"]:
+            print(
+                f"  {row['n_scenarios']:>5} scenarios: "
+                f"FV={row['fair_value']:.2f}, "
+                f"SE={row['std_error']:.4f}, "
+                f"95% CI=[{row['ci_95_low']:.2f}, {row['ci_95_high']:.2f}]"
+            )
 
         report_to_save = report.copy()
         report_to_save["pricing"] = report["pricing"].copy()
