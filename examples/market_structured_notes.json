@@ -1,0 +1,252 @@
+[
+  {
+    "description": "Simplified market example based on a Phoenix autocall note linked to SBER and YDEX.",
+    "source_note": "Educational representation of a market structured note identifier; only terms supported by the current pricer are included.",
+    "product": {
+      "meta": {
+        "isin": "RU000A108HJ3",
+        "name": "SBER-YDEX Phoenix Autocall",
+        "type": "PhoenixAutocall"
+      },
+      "params": {
+        "nominal": 1000.0,
+        "currency": "RUB",
+        "underlyings": ["SBER", "YDEX"],
+        "feature_type": "standard",
+        "coupon_rate": 0.28,
+        "memory_effect": true,
+        "coupon_frequency": 4,
+        "barriers": {
+          "autocall": 1.0,
+          "coupon": 1.0,
+          "capital_protection": 1.0
+        }
+      }
+    },
+    "market_params": {
+      "initial_prices": {
+        "SBER": 280.0,
+        "YDEX": 4000.0
+      },
+      "volatilities": {
+        "SBER": 0.30,
+        "YDEX": 0.40
+      },
+      "risk_free_rate": 0.16,
+      "dividend_yields": {
+        "SBER": 0.10,
+        "YDEX": 0.0
+      },
+      "correlation_matrix": [
+        [1.0, 0.5],
+        [0.5, 1.0]
+      ],
+      "n_scenarios": 10000,
+      "n_steps": 12,
+      "T": 3.0
+    }
+  },
+  {
+    "description": "Simplified market example based on a high-coupon basket Phoenix autocall note.",
+    "source_note": "Educational representation of a market structured note identifier; only terms supported by the current pricer are included.",
+    "product": {
+      "meta": {
+        "isin": "RU000A108HM7",
+        "name": "High-Coupon Basket Phoenix Autocall",
+        "type": "PhoenixAutocall"
+      },
+      "params": {
+        "nominal": 1000.0,
+        "currency": "RUB",
+        "underlyings": ["NVTK", "SBER", "TCSG", "ALRS", "YDEX"],
+        "feature_type": "hybrid_avg_worst",
+        "coupon_rate": 0.30,
+        "memory_effect": true,
+        "coupon_frequency": 4,
+        "barriers": {
+          "autocall": 1.10,
+          "coupon": 1.10,
+          "capital_protection": 0.90
+        }
+      }
+    },
+    "market_params": {
+      "initial_prices": {
+        "NVTK": 1000.0,
+        "SBER": 1000.0,
+        "TCSG": 1000.0,
+        "ALRS": 1000.0,
+        "YDEX": 1000.0
+      },
+      "volatilities": {
+        "NVTK": 0.35,
+        "SBER": 0.35,
+        "TCSG": 0.40,
+        "ALRS": 0.38,
+        "YDEX": 0.45
+      },
+      "risk_free_rate": 0.16,
+      "dividend_yields": {
+        "NVTK": 0.08,
+        "SBER": 0.10,
+        "TCSG": 0.0,
+        "ALRS": 0.07,
+        "YDEX": 0.0
+      },
+      "correlation_matrix": [
+        [1.0, 0.45, 0.35, 0.40, 0.30],
+        [0.45, 1.0, 0.40, 0.50, 0.35],
+        [0.35, 0.40, 1.0, 0.30, 0.45],
+        [0.40, 0.50, 0.30, 1.0, 0.30],
+        [0.30, 0.35, 0.45, 0.30, 1.0]
+      ],
+      "n_scenarios": 10000,
+      "n_steps": 12,
+      "T": 3.0
+    }
+  },
+  {
+    "description": "Barclays AutoCallable Contingent Coupon Notes due June 15, 2029 linked to Snowflake Inc. Class A common stock.",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/312070/000191870426016287/form424b2.htm",
+    "source_note": "SEC 424B2 filing dated 2026-06-10. Educational representation: the note is mapped to the current PhoenixAutocallProduct payoff using the published call, coupon and barrier levels.",
+    "product": {
+      "meta": {
+        "isin": "US06749HJW60",
+        "name": "Barclays Snowflake AutoCallable Contingent Coupon Notes",
+        "type": "PhoenixAutocall"
+      },
+      "params": {
+        "nominal": 1000.0,
+        "currency": "USD",
+        "underlyings": ["SNOW"],
+        "feature_type": "standard",
+        "coupon_rate": 0.16,
+        "memory_effect": true,
+        "coupon_frequency": 4,
+        "barriers": {
+          "autocall": 1.0,
+          "coupon": 0.5,
+          "capital_protection": 0.5
+        }
+      }
+    },
+    "market_params": {
+      "initial_prices": {
+        "SNOW": 238.26
+      },
+      "volatilities": {
+        "SNOW": 0.55
+      },
+      "risk_free_rate": 0.045,
+      "dividend_yields": {
+        "SNOW": 0.0
+      },
+      "correlation_matrix": [
+        [1.0]
+      ],
+      "n_scenarios": 10000,
+      "n_steps": 12,
+      "T": 3.0
+    }
+  },
+  {
+    "description": "Barclays AutoCallable Contingent Coupon Notes due June 13, 2028 linked to the least performing of BSX and ISRG.",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/312070/000191870426016284/form424b2.htm",
+    "source_note": "SEC 424B2 filing dated 2026-06-10. Educational representation: two-equity worst-of autocall with memory coupons and 60% downside barrier.",
+    "product": {
+      "meta": {
+        "isin": "US06749HJS58",
+        "name": "Barclays BSX-ISRG Worst-Of AutoCallable Contingent Coupon Notes",
+        "type": "PhoenixAutocall"
+      },
+      "params": {
+        "nominal": 1000.0,
+        "currency": "USD",
+        "underlyings": ["BSX", "ISRG"],
+        "feature_type": "worst_of",
+        "coupon_rate": 0.1675,
+        "memory_effect": true,
+        "coupon_frequency": 4,
+        "barriers": {
+          "autocall": 1.0,
+          "coupon": 0.6,
+          "capital_protection": 0.6
+        }
+      }
+    },
+    "market_params": {
+      "initial_prices": {
+        "BSX": 48.55,
+        "ISRG": 422.06
+      },
+      "volatilities": {
+        "BSX": 0.28,
+        "ISRG": 0.34
+      },
+      "risk_free_rate": 0.045,
+      "dividend_yields": {
+        "BSX": 0.0,
+        "ISRG": 0.0
+      },
+      "correlation_matrix": [
+        [1.0, 0.45],
+        [0.45, 1.0]
+      ],
+      "n_scenarios": 10000,
+      "n_steps": 8,
+      "T": 2.0
+    }
+  },
+  {
+    "description": "Barclays Phoenix AutoCallable Notes due June 13, 2028 linked to the least performing of SPX, RTY and XLU.",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/312070/000191870426016280/form424b2.htm",
+    "source_note": "SEC 424B2 filing dated 2026-06-10. Educational representation: worst-of index/ETF Phoenix autocall with monthly coupons, 80% coupon barrier and 60% downside barrier.",
+    "product": {
+      "meta": {
+        "isin": "US06749HGF64",
+        "name": "Barclays SPX-RTY-XLU Phoenix AutoCallable Notes",
+        "type": "PhoenixAutocall"
+      },
+      "params": {
+        "nominal": 1000.0,
+        "currency": "USD",
+        "underlyings": ["SPX", "RTY", "XLU"],
+        "feature_type": "worst_of",
+        "coupon_rate": 0.071,
+        "memory_effect": false,
+        "coupon_frequency": 12,
+        "barriers": {
+          "autocall": 1.0,
+          "coupon": 0.8,
+          "capital_protection": 0.6
+        }
+      }
+    },
+    "market_params": {
+      "initial_prices": {
+        "SPX": 7405.73,
+        "RTY": 2855.424,
+        "XLU": 43.52
+      },
+      "volatilities": {
+        "SPX": 0.18,
+        "RTY": 0.26,
+        "XLU": 0.22
+      },
+      "risk_free_rate": 0.045,
+      "dividend_yields": {
+        "SPX": 0.015,
+        "RTY": 0.015,
+        "XLU": 0.03
+      },
+      "correlation_matrix": [
+        [1.0, 0.75, 0.55],
+        [0.75, 1.0, 0.45],
+        [0.55, 0.45, 1.0]
+      ],
+      "n_scenarios": 10000,
+      "n_steps": 24,
+      "T": 2.0
+    }
+  }
+]

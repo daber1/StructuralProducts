@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "structural-products"
+version = "0.1.0"
+description = "Monte Carlo pricing and risk metrics for structured notes"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "requests>=2.28",
+]
+
+[project.optional-dependencies]
+research = ["matplotlib>=3.7"]
+dev = ["pytest>=7.4", "scipy>=1.10", "matplotlib>=3.7"]
+
+[project.urls]
+Repository = "https://github.com/daber1/StructuralProducts"
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+include = ["structpy", "structpy.*"]
+namespaces = false

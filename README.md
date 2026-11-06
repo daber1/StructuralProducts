@@ -34,30 +34,51 @@ structpy/
   models/     дополнительные рыночные модели
 tests/        unit-тесты и ручные сценарии проверки продуктов
 artifacts/    CSV/PNG результаты исторической переоценки
+examples/     упрощенные примеры рыночных структурных облигаций
 ```
 
-## Установка зависимостей
+## Установка
 
-Проект рассчитан на Python 3.11+.
+Проект рассчитан на Python 3.11+. Вычислительный модуль можно установить
+прямо в окружение другой работы:
 
-Основные библиотеки:
-
-```text
-numpy
-pandas
-scipy
-matplotlib
-requests
-pytest
+```shell
+python -m pip install "structural-products @ git+https://github.com/daber1/StructuralProducts.git"
 ```
 
-Установка виртуального окружения:
+После установки доступны импорты `structpy.core`, `structpy.parser`,
+`structpy.products`, `structpy.data` и `structpy.models`. Базовые зависимости
+(NumPy, pandas, requests) устанавливаются автоматически.
+
+Для работы с исходниками и запуска всех тестов:
 
 ```powershell
+git clone https://github.com/daber1/StructuralProducts.git
+cd StructuralProducts
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install numpy pandas scipy matplotlib requests pytest
+python -m pip install -e ".[dev]"
 ```
+
+Для исторической переоценки и графиков достаточно `python -m pip install ".[research]"`.
+В Linux/macOS окружение активируется командой `source .venv/bin/activate`.
+
+## Использование в другой работе
+
+[Самостоятельный пример](examples/reuse_pricer.py) рассчитывает стоимость
+и риск-метрики годового Phoenix-продукта без загрузки рыночных данных:
+
+```shell
+python examples/reuse_pricer.py
+```
+
+Этот файл можно скопировать в другой проект и запускать после установки
+пакета. Он использует только публичные импорты `structpy` и не зависит от
+расположения репозитория.
+
+[Инструкция по подключению](docs/reuse.md) описывает API, формат входных
+данных, единицы измерения, расписание наблюдений, интерпретацию результатов
+и фиксацию версии для воспроизводимости. Импорт модуля не запускает расчёты.
 
 ## Запуск тестов
 
@@ -91,6 +112,24 @@ python price_products.py
 - средняя выплата без дисконтирования;
 - `VaR 95%`, `ES` и максимальный убыток;
 - дельты по базовым активам.
+
+## Рыночные примеры
+
+В папке `examples/` добавлены упрощенные конфигурации рыночных структурных облигаций:
+
+```text
+examples/market_structured_notes.json
+```
+
+Сейчас в файле есть несколько примеров с рыночными ISIN:
+
+- `RU000A108HJ3` — Phoenix autocall на корзину `SBER`/`YDEX`;
+- `RU000A108HM7` — high-coupon basket Phoenix autocall на корзину `NVTK`, `SBER`, `TCSG`, `ALRS`, `YDEX`.
+- `US06749HJW60` — Barclays AutoCallable Contingent Coupon Notes на `SNOW`;
+- `US06749HJS58` — Barclays worst-of autocall на `BSX`/`ISRG`;
+- `US06749HGF64` — Barclays Phoenix autocall на `SPX`/`RTY`/`XLU`.
+
+Эти конфигурации используются как реалистичные входные данные для проверки parser/pricer pipeline. Они являются учебным представлением рыночных продуктов: в JSON включены только параметры, которые поддерживаются текущей моделью (`coupon`, `autocall`, memory effect, барьер защиты капитала, basket-агрегация, волатильность, ставка, дивиденды и корреляционная матрица). Для SEC-примеров в JSON также сохранены ссылки на исходные 424B2 filings.
 
 ## Историческая переоценка S&P 500 продукта
 

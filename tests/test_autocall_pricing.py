@@ -90,7 +90,15 @@ def _basket_participation_config(
     }
 
 
-def _price_product(make_product, config: dict, s0: float, sigma: float, r: float, t: float):
+def _price_product(
+    make_product,
+    config: dict,
+    s0: float,
+    sigma: float,
+    r: float,
+    t: float,
+    n_scenarios: int = 12000,
+):
     product = make_product(config, {"ASSET1": s0})
     generator = ScenarioGenerator(
         tickers=["ASSET1"],
@@ -99,7 +107,7 @@ def _price_product(make_product, config: dict, s0: float, sigma: float, r: float
         risk_free_rate=r,
     )
     pricer = Pricer(product, generator)
-    return pricer.price(n_scenarios=12000, n_steps=24, T=t, seed=42)
+    return pricer.price(n_scenarios=n_scenarios, n_steps=24, T=t, seed=42)
 
 
 def test_zero_coupon_limit_matches_discounted_nominal(make_product):
@@ -123,6 +131,38 @@ def test_put_like_limit_matches_bond_minus_put(make_product):
     expected = 1000.0 * math.exp(-r * t) - 1000.0 / s0 * put_price
 
     assert result["fair_value"] == pytest.approx(expected, abs=7.0)
+
+
+def test_monte_carlo_convergence_reduces_standard_error(make_product):
+    s0 = 100.0
+    r = 0.02
+    sigma = 0.30
+    t = 1.0
+    config = _put_like_config()
+    put_price = _bs_put(s0, s0, r, sigma, t)
+    expected = 1000.0 * math.exp(-r * t) - 1000.0 / s0 * put_price
+
+    small_run = _price_product(
+        make_product,
+        config,
+        s0,
+        sigma,
+        r,
+        t,
+        n_scenarios=1000,
+    )
+    large_run = _price_product(
+        make_product,
+        config,
+        s0,
+        sigma,
+        r,
+        t,
+        n_scenarios=20000,
+    )
+
+    assert large_run["std_error"] < small_run["std_error"]
+    assert large_run["fair_value"] == pytest.approx(expected, abs=3.0 * large_run["std_error"])
 
 
 def test_put_like_structure_value_decreases_with_higher_volatility(make_product):
